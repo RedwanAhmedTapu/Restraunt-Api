@@ -1,13 +1,24 @@
 const express = require('express');
 const router = express.Router();
 const Menu = require('../models/menu-model');
-
+const category = require('./../models/Category-model')
 // GET method to retrieve menu items by category
 router.get('/', async (req, res) => {
   try {
     const { category } = req.query;
     const menuItems = await Menu.find(category ? { category } : {});
     res.json(menuItems);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get('/category', async (req, res) => {
+  try {
+
+    const CategroyList = await category.find();
+    // console.log('CategroyList')
+    res.json(CategroyList);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
