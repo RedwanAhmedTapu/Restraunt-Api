@@ -21,6 +21,7 @@ const galleryRoute = require('../routes/gallery');
 const contactRoute = require('../routes/contact');
 const reviewsRoute = require('../routes/reviews');
 const socialRoute = require('../routes/social');
+const reserveRoute = require('../routes/reservation');
 
 app.get('/', (req, res) => {
     res.send('Welcome to the Restaurant API');
@@ -33,6 +34,7 @@ app.use('/gallery', galleryRoute);
 app.use('/contact', contactRoute);
 app.use('/reviews', reviewsRoute);
 app.use('/social', socialRoute);
+app.use('/reserve', reserveRoute);
 
 // Start the server
 app.listen(PORT, () => {

@@ -17,7 +17,6 @@ router.get('/category', async (req, res) => {
   try {
 
     const CategroyList = await category.find();
-    // console.log('CategroyList')
     res.json(CategroyList);
   } catch (error) {
     res.status(500).json({ message: error.message });
