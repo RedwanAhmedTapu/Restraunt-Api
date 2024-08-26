@@ -60,22 +60,59 @@ const SendMail = (to, userName, otp, timeLimit, supportContact) => {
     });
 };
 
-router.post('/send-otp', (req, res) => {
-    const { email, userName } = req.body;
-    const otp = generateOTP();
-    const expiry = Date.now() + OTP_VALIDITY;
-    const timeLimit = '60 seconds';
-    const supportContact = 'info@oliveandlime.co.uk';
-    otpStore.set(email, { otp, expiry });
 
-    SendMail(email, userName, otp, timeLimit, supportContact);
+const sendConfirmationMail = async (email, userName, reservationDate, timeSlotId) => {
+    try {
+        const timeSlot = await TimeSlot.findById(timeSlotId);
+        if (!timeSlot) {
+            throw new Error('Time slot not found');
+        }
 
-    res.status(200).json({ message: 'OTP sent to email' });
-});
+        const options = {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true, // Use 12-hour clock
+            timeZone: 'UTC' 
+        };
+        const reservationTime = new Date(timeSlot.startTime).toLocaleTimeString([], options);
+
+        console.log('Time slot selected : ', new Date(timeSlot.startTime).toLocaleTimeString([], options))
+        const mailOptions = {
+            from: 'info@oliveandlime.co.uk',
+            to: email,
+            subject: 'Reservation Confirmation from Olive and Lime',
+            html: `
+                <div style="font-family: Arial, sans-serif; color: #333; padding: 20px; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 8px; background-color: #2c3e50; color: #ecf0f1;">
+                    <h2 style="color: #27ae60;">Dear ${userName},</h2>
+                    <p style="font-size: 14px; color: #ecf0f1;">Thank you for your recent reservation at Olive and Lime! Your reservation has been confirmed for ${new Date(reservationDate).toLocaleDateString()} at ${reservationTime}.</p>
+                    <p style="font-size: 14px; color: #ecf0f1;">
+                        Important: Please note that if you do not check in at the restaurant within 10 minutes of your selected time slot (${reservationTime}), your reservation may be canceled.
+                    </p>
+                    <p style="font-size: 14px; color: #ecf0f1;">We look forward to serving you!</p>
+                    <p style="margin-top: 30px; font-size: 14px; color: #ecf0f1;">
+                        Best regards,<br>
+                        The Olive and Lime Team
+                    </p>
+                </div>
+            `,
+        };
+
+        transporter.sendMail(mailOptions, (err, info) => {
+            if (err) {
+                console.error('Error occurred:', err);
+            } else {
+                console.log('Confirmation email sent:', info.response);
+            }
+        });
+    } catch (error) {
+        console.error('Error sending confirmation email:', error);
+    }
+};
 
 router.post('/verify-otp', async (req, res) => {
-    const { email, otp, reservationData } = req.body; // Extract reservation data from the request body
+    const { email, otp, reservationData } = req.body;
     const storedOtpData = otpStore.get(email);
+    console.log(email,storedOtpData)
 
     if (!storedOtpData) {
         return res.status(400).json({ message: 'Invalid or expired OTP' });
@@ -91,23 +128,42 @@ router.post('/verify-otp', async (req, res) => {
     if (otp === storedOtp) {
         otpStore.delete(email); // Remove OTP after successful verification
 
+        // Create a reservation
         try {
-            // Create a new reservation
-            const newReservation = new Reservation(reservationData);
-            await newReservation.save();
+            const reservation = new Reservation({
+                ...reservationData,
+                date: new Date(reservationData.date),
+                timeSlot: reservationData.timeSlot,
+            });
 
-            // Respond with success
-            return res.status(200).json({ verified: true, status:true });
+            await reservation.save();
+
+            // Send confirmation email
+            await sendConfirmationMail(email, reservationData.fullName, reservationData.date, reservationData.timeSlot);
+
+            return res.status(200).json({ verified: true });
         } catch (error) {
-            // Respond with error if reservation fails
-            console.error('Error saving reservation:', error);
-            return res.status(500).json({ message: 'Failed to create reservation' });
+            console.error('Error creating reservation:', error);
+            return res.status(500).json({ message: 'Error creating reservation' });
         }
     } else {
         return res.status(400).json({ message: 'Invalid OTP' });
     }
 });
 
+
+router.post('/send-otp', (req, res) => {
+    const { email, userName } = req.body;
+    const otp = generateOTP();
+    const expiry = Date.now() + OTP_VALIDITY;
+    const timeLimit = '60 seconds';
+    const supportContact = 'info@oliveandlime.co.uk';
+    otpStore.set(email, { otp, expiry });
+
+    SendMail(email, userName, otp, timeLimit, supportContact);
+
+    res.status(200).json({ message: 'OTP sent to email' });
+});
 
 router.get('/time', async (req, res) => {
     try {
@@ -148,6 +204,8 @@ router.get('/time', async (req, res) => {
                 reservationCount[reservation.timeSlot] = 1;
             }
         });
+
+        console.log(reservationCount)
 
         // Modify the availability based on reservations and unavailability
         const modifiedTimeSlots = timeSlots.map(slot => {
