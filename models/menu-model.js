@@ -27,7 +27,6 @@ const menuSchema = new mongoose.Schema({
   },
   offerPrice: {
     type: Number,
-    required: true
   },
   type: {
     type: String,
