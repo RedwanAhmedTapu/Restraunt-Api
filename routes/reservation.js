@@ -4,7 +4,77 @@ const TimeSlot = require('../models/time-slot-model');
 const Reservation = require('../models/reservation-model');
 const UnavailableTimeSlot = require('../models/unavailable-time-slot-model');
 const nodemailer = require('nodemailer');
+const unavailableTimeSlotModel = require('../models/unavailable-time-slot-model');
 require('dotenv').config();
+
+
+
+router.get('/all', async (req, res) => {
+    try {
+
+        const { date, time } = req.query;
+
+        console.log(date, time)
+        const allReservations = await Reservation.find();
+        const filterDate = date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+
+        const filteredReservations = allReservations.filter(reservation => {
+            const reservationDate = new Date(reservation.date).toISOString().split('T')[0];
+
+
+            return reservationDate == filterDate && reservation.timeSlot == time
+        });
+
+        console.log(filteredReservations)
+
+
+        res.json(filteredReservations);
+    } catch (error) {
+        console.error('Error fetching reservations:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+router.get('/alltime', async (req, res) => {
+    const time = await TimeSlot.find()
+    res.json(time)
+
+})
+router.get('/timeStatus', async (req, res) => {
+    const { date } = req.query;
+    const timeSlots = await TimeSlot.find();
+
+    const unavailableSlots = await UnavailableTimeSlot.find();
+    const filteredUnavailable = unavailableSlots.filter(day => {
+        const dayDate = new Date(day.date).toISOString().split('T')[0];
+        const filterDate = date.toISOString().split('T')[0];
+        return dayDate === filterDate;
+    });
+
+    const unavailableSlotIds = new Set(filteredUnavailable.map(slot => slot.timeSlot.toString()));
+
+    const modifiedTimeSlots = timeSlots.map(slot => {
+        const slotId = slot._id.toString();
+        let updatedSlot = { ...slot.toObject() };
+
+
+        if (unavailableSlotIds.has(slotId)) {
+            updatedSlot.status = false;
+        }
+
+        return updatedSlot;
+    });
+
+    res.status(200).json(modifiedTimeSlots);
+
+})
+router.post('/makeUnable', async (req, res) => {
+    const time = await unavailableTimeSlotModel.find()
+    res.json(time)
+
+})
+
+
 
 
 const transporter = nodemailer.createTransport({
@@ -19,8 +89,8 @@ const transporter = nodemailer.createTransport({
 
 
 
-const otpStore = new Map(); // Store OTPs and expiry times
-const OTP_VALIDITY = 60 * 1000; // 60 seconds
+const otpStore = new Map();
+const OTP_VALIDITY = 60 * 1000;
 
 const generateOTP = () => {
     return Math.floor(100000 + Math.random() * 900000).toString();
@@ -71,8 +141,8 @@ const sendConfirmationMail = async (email, userName, reservationDate, timeSlotId
         const options = {
             hour: '2-digit',
             minute: '2-digit',
-            hour12: true, // Use 12-hour clock
-            timeZone: 'UTC' 
+            hour12: true,
+            timeZone: 'UTC'
         };
         const reservationTime = new Date(timeSlot.startTime).toLocaleTimeString([], options);
 
@@ -112,7 +182,7 @@ const sendConfirmationMail = async (email, userName, reservationDate, timeSlotId
 router.post('/verify-otp', async (req, res) => {
     const { email, otp, reservationData } = req.body;
     const storedOtpData = otpStore.get(email);
-    console.log(email,storedOtpData)
+    console.log(email, storedOtpData)
 
     if (!storedOtpData) {
         return res.status(400).json({ message: 'Invalid or expired OTP' });
@@ -126,9 +196,9 @@ router.post('/verify-otp', async (req, res) => {
     }
 
     if (otp === storedOtp) {
-        otpStore.delete(email); // Remove OTP after successful verification
+        otpStore.delete(email);
 
-        // Create a reservation
+
         try {
             const reservation = new Reservation({
                 ...reservationData,
@@ -138,7 +208,7 @@ router.post('/verify-otp', async (req, res) => {
 
             await reservation.save();
 
-            // Send confirmation email
+
             await sendConfirmationMail(email, reservationData.fullName, reservationData.date, reservationData.timeSlot);
 
             return res.status(200).json({ verified: true });
@@ -167,35 +237,35 @@ router.post('/send-otp', (req, res) => {
 
 router.get('/time', async (req, res) => {
     try {
-        // Get the date from the query parameters
+
         const { date: queryDate } = req.query;
 
-        // Validate and parse the date
+
         if (!queryDate) {
             return res.status(400).json({ message: 'Date query parameter is required.' });
         }
         const date = new Date(queryDate);
 
-        const timeSlots = await TimeSlot.find(); // Fetch all time slots
-        const reservations = await Reservation.find(); // Fetch reservations for the given date
-        const unavailableSlots = await UnavailableTimeSlot.find(); // Fetch unavailable slots for the given date
+        const timeSlots = await TimeSlot.find();
+        const reservations = await Reservation.find();
+        const unavailableSlots = await UnavailableTimeSlot.find();
 
         const filteredReservation = reservations.filter(day => {
-            const dayDate = new Date(day.date).toISOString().split('T')[0]; // Extract date part
-            const filterDate = date.toISOString().split('T')[0]; // Extract date part
+            const dayDate = new Date(day.date).toISOString().split('T')[0];
+            const filterDate = date.toISOString().split('T')[0];
             return dayDate === filterDate;
         });
 
         const filteredUnavailable = unavailableSlots.filter(day => {
-            const dayDate = new Date(day.date).toISOString().split('T')[0]; // Extract date part
-            const filterDate = date.toISOString().split('T')[0]; // Extract date part
+            const dayDate = new Date(day.date).toISOString().split('T')[0];
+            const filterDate = date.toISOString().split('T')[0];
             return dayDate === filterDate;
         });
 
-        // Create a Set of unavailable slot IDs
+
         const unavailableSlotIds = new Set(filteredUnavailable.map(slot => slot.timeSlot.toString()));
 
-        // Create a map to count the number of reservations per time slot
+
         const reservationCount = {};
         filteredReservation.forEach(reservation => {
             if (reservationCount[reservation.timeSlot]) {
@@ -207,17 +277,17 @@ router.get('/time', async (req, res) => {
 
         console.log(reservationCount)
 
-        // Modify the availability based on reservations and unavailability
+
         const modifiedTimeSlots = timeSlots.map(slot => {
             const slotId = slot._id.toString();
             let updatedSlot = { ...slot.toObject() };
 
-            // Check reservation count
+
             if (reservationCount[slotId] >= 10) {
                 updatedSlot.availability = false;
             }
 
-            // Check if the slot is in unavailable slots
+
             if (unavailableSlotIds.has(slotId)) {
                 updatedSlot.status = false;
             }
@@ -225,12 +295,14 @@ router.get('/time', async (req, res) => {
             return updatedSlot;
         });
 
-        res.status(200).json(modifiedTimeSlots); // Send the modified time slots as the response
+        res.status(200).json(modifiedTimeSlots);
     } catch (error) {
-        console.error('Error fetching time slots:', error); // Log the error
+        console.error('Error fetching time slots:', error);
         res.status(500).json({ message: error.message });
     }
 });
+
+
 
 module.exports = router;
 
