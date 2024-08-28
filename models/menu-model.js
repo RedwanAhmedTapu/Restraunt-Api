@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const Review=require("../models/review-model")
 
 const menuSchema = new mongoose.Schema({
   name: {
@@ -43,6 +44,10 @@ const menuSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  reviews: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Review', 
+  }],
 });
 
 module.exports = mongoose.model("Menu", menuSchema);

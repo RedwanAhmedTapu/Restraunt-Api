@@ -28,6 +28,7 @@ const uploadMiddleware = (req, res, next) => {
   const uploadSingle = upload.single('file');
 
   uploadSingle(req, res, async (err) => {
+    console.log(err)
     if (err) {
       return res.status(400).send('File upload failed');
     }

@@ -8,7 +8,7 @@ const Category = require('../models/Category-model');
 router.get('/', async (req, res) => {
   try {
     const { category } = req.query;
-    const menuItems = await Menu.find(category ? { category } : {});
+    const menuItems = await Menu.find(category ? { category } : {}).populate('reviews');
     res.json(menuItems);
   } catch (error) {
     res.status(500).json({ message: error.message });
