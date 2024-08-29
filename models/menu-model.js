@@ -40,6 +40,13 @@ const menuSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  allergy: {
+    type: Boolean,
+    default: true,
+  },
+  callories: {
+    type: Number,
+  },
   category: {
     type: String,
     required: true,
