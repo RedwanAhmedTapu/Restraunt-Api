@@ -29,6 +29,7 @@ const reviewsRoute = require('../routes/reviews');
 const socialRoute = require('../routes/social');
 const reserveRoute = require('../routes/reservation');
 const sliderRoute=require("../routes/slider-route");
+const email=require("../routes/email");
 
 app.get('/', (req, res) => {
     res.send('Welcome to the Restaurant API');
@@ -44,6 +45,7 @@ app.use('/contact', contactRoute);
 app.use('/reviews', reviewsRoute);
 app.use('/social', socialRoute);
 app.use('/reserve', reserveRoute);
+app.use('/email', email);
 app.use('/home-slider-upload', sliderRoute);
 
 // Start the server

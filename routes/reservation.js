@@ -4,37 +4,46 @@ const TimeSlot = require('../models/time-slot-model');
 const Reservation = require('../models/reservation-model');
 const UnavailableTimeSlot = require('../models/unavailable-time-slot-model');
 const nodemailer = require('nodemailer');
-const unavailableTimeSlotModel = require('../models/unavailable-time-slot-model');
 require('dotenv').config();
 
 
 
 router.get('/all', async (req, res) => {
     try {
-
         const { date, time } = req.query;
 
-        console.log(date, time)
+
         const allReservations = await Reservation.find();
+        const allTimeSlots = await TimeSlot.find();
+
+
         const filterDate = date ? new Date(date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
 
-
-        const filteredReservations = allReservations.filter(reservation => {
+        const DatefilteredReservations = allReservations.filter(reservation => {
             const reservationDate = new Date(reservation.date).toISOString().split('T')[0];
-
-
-            return reservationDate == filterDate && reservation.timeSlot == time
+            return reservationDate === filterDate;
         });
 
-        console.log(filteredReservations)
 
+        const filteredReservations = time
+            ? DatefilteredReservations.filter(reservation => reservation.timeSlot == time)
+            : DatefilteredReservations;
 
-        res.json(filteredReservations);
+        const enhancedReservations = filteredReservations.map(reservation => {
+            const matchingTimeSlot = allTimeSlots.find(slot => slot._id.toString() === reservation.timeSlot.toString());
+
+            return {
+                ...reservation.toObject(),
+                startTime: matchingTimeSlot ? matchingTimeSlot.startTime : null,
+            };
+        });
+        res.json(enhancedReservations);
     } catch (error) {
         console.error('Error fetching reservations:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 });
+
 router.get('/alltime', async (req, res) => {
     const time = await TimeSlot.find()
     res.json(time)
@@ -44,19 +53,24 @@ router.get('/timeStatus', async (req, res) => {
     const { date } = req.query;
     const timeSlots = await TimeSlot.find();
 
+
     const unavailableSlots = await UnavailableTimeSlot.find();
+    const filterDate = new Date(date).toISOString().split('T')[0];
+
     const filteredUnavailable = unavailableSlots.filter(day => {
         const dayDate = new Date(day.date).toISOString().split('T')[0];
-        const filterDate = date.toISOString().split('T')[0];
         return dayDate === filterDate;
     });
 
     const unavailableSlotIds = new Set(filteredUnavailable.map(slot => slot.timeSlot.toString()));
 
-    const modifiedTimeSlots = timeSlots.map(slot => {
+
+    // Determine if the given date is a Sunday
+    const isSunday = new Date(date).getDay() === 0;
+
+    let modifiedTimeSlots = timeSlots.map(slot => {
         const slotId = slot._id.toString();
         let updatedSlot = { ...slot.toObject() };
-
 
         if (unavailableSlotIds.has(slotId)) {
             updatedSlot.status = false;
@@ -65,14 +79,81 @@ router.get('/timeStatus', async (req, res) => {
         return updatedSlot;
     });
 
-    res.status(200).json(modifiedTimeSlots);
+    // Remove specific time slots if the date is Sunday
+    if (isSunday) {
+        const idsToRemove = [
+            "66c9c87a10ee31fdc935146e",
+            "66c9c87a10ee31fdc935147c"
+        ];
+        modifiedTimeSlots = modifiedTimeSlots.filter(slot => !idsToRemove.includes(slot._id.toString()));
+    }
 
-})
-router.post('/makeUnable', async (req, res) => {
-    const time = await unavailableTimeSlotModel.find()
+    res.status(200).json(modifiedTimeSlots);
+});
+
+router.get('/un', async (req, res) => {
+    const time = await UnavailableTimeSlot.find()
     res.json(time)
 
 })
+
+router.delete('/manipulate', async (req, res) => {
+    try {
+        const timeSlotId = req.body.timeSlotId;
+        const date = new Date(req.body.date);
+         
+        console.log(timeSlotId,date)
+
+        // Set the start and end of the day
+        const startOfDay = new Date(date);
+        startOfDay.setHours(0, 0, 0, 0);
+
+        const endOfDay = new Date(date);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        // Find and delete the document
+        const result = await UnavailableTimeSlot.findOneAndDelete({
+            timeSlot: timeSlotId,
+            date: { $gte: startOfDay, $lt: endOfDay },
+        });
+
+        if (result) {
+            res.status(200).json({ message: 'Time slot deleted successfully' });
+        } else {
+            res.status(404).json({ message: 'No matching time slot found' });
+        }
+    } catch (error) {
+        console.error('Error during deletion:', error);
+        res.status(500).json({ message: 'An error occurred', error });
+    }
+});
+
+
+router.post('/manipulate', async (req, res) => {
+    try {
+        const { date, timeSlotId } = req.body;
+
+        console.log(date, timeSlotId)
+        if (!date || !timeSlotId) {
+            return res.status(400).json({ message: 'Date and TimeSlot ID are required.' });
+        }
+
+
+        const newUnavailableSlot = new UnavailableTimeSlot({
+            timeSlot: timeSlotId,
+            date: new Date(date)
+        });
+
+
+        await newUnavailableSlot.save();
+
+        res.status(200).json({ message: 'Time slot marked as unavailable successfully.', data: newUnavailableSlot });
+    } catch (error) {
+        console.error('Error marking time slot as unavailable:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+});
+
 
 
 
@@ -129,7 +210,6 @@ const SendMail = (to, userName, otp, timeLimit, supportContact) => {
         }
     });
 };
-
 
 const sendConfirmationMail = async (email, userName, reservationDate, timeSlotId) => {
     try {
@@ -275,7 +355,7 @@ router.get('/time', async (req, res) => {
             }
         });
 
-        console.log(reservationCount)
+
 
 
         const modifiedTimeSlots = timeSlots.map(slot => {

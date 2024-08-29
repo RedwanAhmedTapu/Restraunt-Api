@@ -153,4 +153,22 @@ router.put('/category/:id', async (req, res) => {
   }
 });
 
+router.get('/footerimage', async (req, res) => {
+  try {
+   
+    const menuItems = await Menu.find();
+
+    
+    const menuImages = menuItems
+      .slice(-6) 
+      .map(item => item.image); 
+
+    
+    res.status(200).json(menuImages);
+  } catch (error) {
+    res.status(500).json({ error: 'An error occurred while fetching the images.' });
+  }
+});
+
+
 module.exports = router;
