@@ -6,8 +6,7 @@ const EmailSchema = new mongoose.Schema({
         type: String,
         required: true,
     }
-});
-
+}); 
 const Reservation = mongoose.model('Email', EmailSchema,'EmailSchema');
 
 module.exports=Reservation;
