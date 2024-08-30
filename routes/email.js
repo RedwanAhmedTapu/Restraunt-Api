@@ -32,5 +32,22 @@ router.post('/', async (req, res) => {
     }
 });
 
+router.delete('/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Find the email by ID and delete it
+        const deletedEmail = await Email.findByIdAndDelete(id);
+
+        if (!deletedEmail) {
+            return res.status(404).json({ message: "Email not found" });
+        }
+
+        res.status(200).json({ message: "Email deleted successfully", email: deletedEmail });
+    } catch (error) {
+        console.error("Error deleting email:", error);
+        res.status(500).json({ error: "Server error, could not delete email" });
+    }
+});
 
 module.exports = router;

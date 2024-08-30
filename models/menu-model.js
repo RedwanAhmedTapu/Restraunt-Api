@@ -41,8 +41,8 @@ const menuSchema = new mongoose.Schema({
     default: true,
   },
   allergy: {
-    type: Boolean,
-    default: true,
+    type: String,
+    required: true,
   },
   callories: {
     type: Number,
