@@ -9,10 +9,10 @@ router.get('/', async (req, res) => {
 
 router.post('/', async (req, res) => {
     try {
-        const { email } = req.body;
+        const { email,name } = req.body;
 
-        if (!email) {
-            return res.status(400).json({ error: "Email is required" });
+        if (!email||!name) {
+            return res.status(400).json({ error: "Email and Name is required" });
         }
 
         const existingEmail = await Email.findOne({ email });
@@ -21,7 +21,7 @@ router.post('/', async (req, res) => {
             return res.status(200).json({ message: "Email already exists" });
         }
 
-        const newEmail = new Email({ email });
+        const newEmail = new Email({ email,name });
 
         await newEmail.save();
 
