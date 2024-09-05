@@ -45,7 +45,8 @@ const menuSchema = new mongoose.Schema({
     required: true,
   },
   callories: {
-    type: Number,
+    type: String,
+    required: true,
   },
   category: {
     type: String,
